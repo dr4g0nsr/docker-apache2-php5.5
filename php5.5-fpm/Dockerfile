@@ -1,4 +1,4 @@
-FROM Ubuntu:16.04
+FROM ubuntu:16.04
 
 MAINTAINER Dragutin Cirkovic <dcirkovic@gmail.com>
 
