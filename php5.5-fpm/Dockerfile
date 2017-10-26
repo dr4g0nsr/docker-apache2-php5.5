@@ -1,37 +1,88 @@
 FROM ubuntu:16.04
 
-MAINTAINER Dragutin Cirkovic <dcirkovic@gmail.com>
+# persistent / runtime deps
+ENV PHPIZE_DEPS \
+		autoconf \
+		file \
+		g++ \
+		gcc \
+		libc-dev \
+		make \
+		pkg-config \
+		re2c
+RUN apt-get update && apt-get install -y \
+		$PHPIZE_DEPS \
+		ca-certificates \
+		curl \
+		libedit2 \
+		libsqlite3-0 \
+		libxml2 \
+		xz-utils \
+	--no-install-recommends && rm -r /var/lib/apt/lists/*
 
-# PHP
-ENV PHP_MODS_DIR=/etc/php5/mods-available
-ENV PHP_CLI_DIR=/etc/php5/cli/
-ENV PHP_CLI_CONF_DIR=${PHP_CLI_DIR}/conf.d
-ENV PHP_CGI_DIR=/etc/php5/cgi/
-ENV PHP_CGI_CONF_DIR=${PHP_CGI_DIR}/conf.d
-ENV PHP_FPM_DIR=/etc/php5/fpm/
-ENV PHP_FPM_CONF_DIR=${PHP_FPM_DIR}/conf.d
-ENV PHP_FPM_POOL_DIR=${PHP_FPM_DIR}/pool.d
+ENV PHP_INI_DIR /usr/local/etc/php
+RUN mkdir -p $PHP_INI_DIR/conf.d
 
-# UPDATE/ONDREJ
-RUN apt-get update
-RUN apt-get -y install software-properties-common
-RUN apt-add-repository -y ppa:ondrej/php
-RUN apt-get update
+ENV GPG_KEYS 0B96609E270F565C13292B24C13C70B87267B52D 0BD78B5F97500D450838F95DFE857D9A90D90EC1 F38252826ACD957EF380D39F2F7956BC5DA04B5D
 
-# INSTALL PHP5.5
-RUN apt-get -y --allow-unauthenticated install php5.5
-RUN apt-get -y --allow-unauthenticated install php5.5-fpm
-RUN apt-get -y --allow-unauthenticated install php5.5-mysql
-RUN apt-get -y --allow-unauthenticated install php5.5-mcrypt
-RUN apt-get -y --allow-unauthenticated install php5.5-dev
+ENV PHP_VERSION 5.5.38
+ENV PHP_FILENAME php-5.5.38.tar.xz
+ENV PHP_SHA256 cb527c44b48343c8557fe2446464ff1d4695155a95601083e5d1f175df95580f
 
-# INSTALL CURL,NANO
-RUN apt-get -y install curl
-RUN apt-get -y install nano
+RUN set -xe \
+	&& cd /usr/src \
+	&& curl -fSL "http://php.net/get/$PHP_FILENAME/from/this/mirror" -o php.tar.xz \
+	&& echo "$PHP_SHA256 *php.tar.xz" | sha256sum -c - \
+	&& curl -fSL "http://php.net/get/$PHP_FILENAME.asc/from/this/mirror" -o php.tar.xz.asc \
+	&& export GNUPGHOME="$(mktemp -d)" \
+	&& for key in $GPG_KEYS; do \
+		gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
+	done \
+	&& gpg --batch --verify php.tar.xz.asc php.tar.xz \
+	&& rm -r "$GNUPGHOME"
 
-# X-Debug
-RUN apt-get -y --allow-unauthenticated install php-xdebug
-RUN echo "xdebug.remote_enable=1" >> /etc/php/5.5/mods-available/xdebug.ini
-RUN echo "xdebug.remote_connect_back=1" >> /etc/php/5.5/mods-available/xdebug.ini
+COPY docker-php-source /usr/local/bin/
+
+RUN set -xe \
+	&& buildDeps=" \
+		$PHP_EXTRA_BUILD_DEPS \
+		libcurl4-openssl-dev \
+		libedit-dev \
+		libsqlite3-dev \
+		libssl-dev \
+		libxml2-dev \
+	" \
+	&& apt-get update && apt-get install -y $buildDeps --no-install-recommends && rm -rf /var/lib/apt/lists/* \
+	\
+	&& docker-php-source extract \
+	&& cd /usr/src/php \
+	&& ./configure \
+		--with-config-file-path="$PHP_INI_DIR" \
+		--with-config-file-scan-dir="$PHP_INI_DIR/conf.d" \
+		\
+		--disable-cgi \
+		\
+		--enable-fpm \
+		--with-fpm-user=www-data \
+		--with-fpm-group=www-data \
+		\
+		--enable-mbstring \
+		--enable-mysqlnd \
+		\
+		--with-curl \
+		--with-libedit \
+		--with-openssl \
+		--with-zlib \
+		\
+		$PHP_EXTRA_CONFIGURE_ARGS \
+	&& make -j"$(nproc)" \
+	&& make install \
+	&& { find /usr/local/bin /usr/local/sbin -type f -executable -exec strip --strip-all '{}' + || true; } \
+	&& make clean \
+	&& docker-php-source delete \
+	\
+	&& apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false $buildDeps
+
+COPY docker-php-ext-* /usr/local/bin/
 
 EXPOSE 9000
