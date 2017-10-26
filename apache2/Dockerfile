@@ -143,5 +143,8 @@ RUN set -eux; \
 
 COPY httpd-foreground /usr/local/bin/
 
+RUN apt-get install nano
+
 EXPOSE 80
+
 CMD ["httpd-foreground"]
