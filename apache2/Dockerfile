@@ -143,7 +143,9 @@ RUN set -eux; \
 
 COPY httpd-foreground /usr/local/bin/
 
-RUN apt-get install nano
+RUN apt-get update && apt-get install -y nano
+
+VOLUME /usr/local/apache2/htdocs
 
 EXPOSE 80
 
