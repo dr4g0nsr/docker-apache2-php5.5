@@ -69,7 +69,6 @@ RUN set -xe \
 		--enable-mbstring \
 		--enable-mysqlnd \
 		\
-		--with-gd \
 		--with-curl \
 		--with-libedit \
 		--with-openssl \
@@ -124,6 +123,7 @@ RUN set -ex \
 		echo 'listen = [::]:9000'; \
 	} | tee php-fpm.d/zz-docker.conf
 
+# Additional ext
 RUN apt-get update && apt-get install -y \
         libfreetype6-dev \
         libjpeg62-turbo-dev \
