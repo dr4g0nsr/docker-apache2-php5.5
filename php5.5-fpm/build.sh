@@ -1,4 +1,6 @@
 #!/bin/bash
+
+chmod 777 docker-*
 docker images -q --filter dangling=true | xargs docker rmi
 docker build -t php55 .
-# --rm . --no-cache=true
+docker create php55
