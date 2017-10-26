@@ -2,5 +2,5 @@
 
 chmod 777 docker-*
 docker images -q --filter dangling=true | xargs docker rmi
-docker build -t php55 .
-docker create php55
+docker build -t dr4g0nsr/php55 .
+docker create dr4g0nsr/php55
